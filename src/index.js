@@ -5,7 +5,6 @@ const {
 const express = require('express')
 const http = require('http')
 const socketio = require('socket.io')
-const API_URL = process.env.API_URL || 'http://localhost:8000/api'
 const app = express()
 const server = http.createServer(app)
 const io = new socketio.Server(server, {
@@ -13,44 +12,21 @@ const io = new socketio.Server(server, {
         origin: '*'
     }
 })
-const NodeCache = require("node-cache");
+
 const initEvents = require('./events/initEvents')
 const userEvents = require('./events/UserEvents')
+const testEvents = require('./events/testEvents')
 
 
-const db = new NodeCache();
-let kitchens = {}
-let tables = {}
+const NodeCache = require("node-cache");
+const dbConnection = require('./dbConnection')
+const db = dbConnection(NodeCache)
 
-db.set("kitchens", kitchens)
-db.set("tables", tables)
 
 const onConnection = (socket) => {
     initEvents(io, socket, db)
     userEvents(io, socket, db)
-
-    // KITCHEN EVENTS
-    // @getKitchen -> retrieve a kitchen
-    socket.on("getKitchen", async (kitchen_uuid) => {
-        try {
-            const kitchen = await axios.get(`${API_URL}/kitchens/${kitchen_uuid}`)
-            console.log(kitchen)
-        } catch (error) {
-            console.log(error.response.data)
-        }
-    })
-
-    // TEST
-    socket.on("broadcastGreeting", (greeting, instance_uuid) => {
-        socket.broadcast.to(instance_uuid).emit("broadcastGreeting", tables)
-    })
-
-    socket.on("disconnect", () => {
-        const table = tables[socket.data.instance_uuid]
-        if (table) {
-            delete table.users[socket.id]
-        }
-    })
+    testEvents(io, socket, db)
 }
 
 io.on('connection', onConnection)
